@@ -56,6 +56,18 @@ struct VerticalMagneticTransferFunction{
 	std::complex<double> TZ[2];
 };
 
+struct HorizontalMagneticTransferFunction{
+	std::complex<double> T[4];
+};
+
+struct PhaseTensor{
+	double Phi[4];
+};
+
+struct NMTResponseFunction{
+	std::complex<double> Y[2];
+};
+
 struct ApparentResistivityAndPhase{
 	double apparentResistivity[4];
 	double phase[4];
@@ -81,6 +93,30 @@ struct VTFData{
 	VerticalMagneticTransferFunction Err;
 };
 
+struct HTFData{
+	double freq;
+	HorizontalMagneticTransferFunction Cal;
+	HorizontalMagneticTransferFunction Res;
+	HorizontalMagneticTransferFunction Obs;
+	HorizontalMagneticTransferFunction Err;
+};
+
+struct PTData{
+	double freq;
+	PhaseTensor Cal;
+	PhaseTensor Res;
+	PhaseTensor Obs;
+	PhaseTensor Err;
+};
+
+struct NMTData{
+	double freq;
+	NMTResponseFunction Cal;
+	NMTResponseFunction Res;
+	NMTResponseFunction Obs;
+	NMTResponseFunction Err;
+};
+
 struct ApparentResistivityAndPhaseData{
 	double freq;
 	ApparentResistivityAndPhase Cal;
@@ -95,6 +131,21 @@ struct MTTrueError{
 };
 
 struct VTFTrueError{
+	double freq;
+	std::pair<double, double> error[2];
+};
+
+struct HTFTrueError{
+	double freq;
+	std::pair<double, double> error[4];
+};
+
+struct PTTrueError{
+	double freq;
+	double error[4];
+};
+
+struct NMTTrueError{
 	double freq;
 	std::pair<double, double> error[2];
 };
@@ -118,6 +169,7 @@ const double DEG2RAD =  M_PI /180.0;
 const double FACTOR = 1.0;
 
 const std::string m_componentIndex[6] = { "xx", "xy", "yx", "yy", "zx", "zy" };
+const std::string m_componentIndexPT[4] = { "11", "12", "21", "22" };
 int m_stationTypeCur(-1);
 bool m_readTrueErrorFile(false);
 bool m_outputCSV(false);
@@ -125,11 +177,17 @@ bool m_isImpedanceTensorConvertedToAppResAndPhase(false);
 int m_typeOfDistortion(NO_DISTORTION);
 std::vector< std::pair<int, MTData> > m_MTDataListAll;
 std::vector< std::pair<int, VTFData> > m_VTFDataListAll;
+std::vector< std::pair<int, HTFData> > m_HTFDataListAll;
+std::vector< std::pair<int, PTData> > m_PTDataListAll;
+std::vector< std::pair<int, NMTData> > m_NMTDataListAll;
 std::vector< std::pair<int, MTData> > m_NMT2DataListAll;
 std::vector< std::pair<int, ApparentResistivityAndPhaseData> > m_AppResAndPhsDataListAll;
 std::vector< std::pair<int, ApparentResistivityAndPhaseData> > m_NMT2AppResAndPhsDataListAll;
 std::vector< std::pair<int, MTTrueError> > m_MTTrueErrorListAll;
 std::vector< std::pair<int, VTFTrueError> > m_VTFTrueErrorListAll;
+std::vector< std::pair<int, HTFTrueError> > m_HTFTrueErrorListAll;
+std::vector< std::pair<int, PTTrueError> > m_PTTrueErrorListAll;
+std::vector< std::pair<int, NMTTrueError> > m_NMTTrueErrorListAll;
 std::vector< std::pair<int, MTTrueError> > m_NMT2TrueErrorListAll;
 std::vector< std::pair<int, MTTrueError> > m_AppResAndPhsTrueErrorListAll;
 std::vector< std::pair<int, MTTrueError> > m_NMT2AppResAndPhsTrueErrorListAll;
@@ -145,13 +203,19 @@ void readRelationSiteIDBetweenSiteName( const std::string& relationFile );
 void calcTrueRMS( const std::string& trueErrorFileName );
 std::string convertSiteIDToSiteName( const int siteID );
 void writeResult();
-void writeResultVTF();
 void writeResultMT();
+void writeResultVTF();
+void writeResultHTF();
+void writeResultPT();
+void writeResultNMT();
 void writeResultNMT2();
 void writeResultAppResAndPhs();
 void writeResultNMT2AppResAndPhs();
 bool pairCompareMTData( const std::pair<int, MTData>& left, const std::pair<int, MTData>& right );
 bool pairCompareVTFData( const std::pair<int, VTFData>& left, const std::pair<int, VTFData>& right );
+bool pairCompareHTFData( const std::pair<int, HTFData>& left, const std::pair<int, HTFData>& right );
+bool pairComparePTData( const std::pair<int, PTData>& left, const std::pair<int, PTData>& right );
+bool pairCompareNMTData( const std::pair<int, NMTData>& left, const std::pair<int, NMTData>& right );
 bool pairCompareAppResAndPhsData( const std::pair<int, ApparentResistivityAndPhaseData>& left, const std::pair<int, ApparentResistivityAndPhaseData>& right );
 void calcUndistortedImpedanceTensor( const int siteID, const ImpedanceTensor& Z, ImpedanceTensor& ZWithoutDistortion);
 void calcUndistortedApparentResistiivtyAndPhase( const int siteID, const double freq, const ApparentResistivityAndPhase& appResAndPhs, ApparentResistivityAndPhase& appResAndPhsWithoutDistortion );
@@ -159,6 +223,9 @@ int getSiteTypeFromSiteID( const int siteID );
 void addNumDataAndSumResidual( const int siteID, std::map<int, NumDataAndSumResidual> & numDataAndSumResidual, const double residual );
 std::vector< std::pair<int, MTTrueError> >::const_iterator getIteratorToMTTrueError( const int siteID, const double freq );
 std::vector< std::pair<int, VTFTrueError> >::const_iterator getIteratorToVTFTrueError( const int siteID, const double freq );
+std::vector< std::pair<int, HTFTrueError> >::const_iterator getIteratorToHTFTrueError( const int siteID, const double freq );
+std::vector< std::pair<int, PTTrueError> >::const_iterator getIteratorToPTTrueError( const int siteID, const double freq );
+std::vector< std::pair<int, NMTTrueError> >::const_iterator getIteratorToNMTTrueError( const int siteID, const double freq );
 std::vector< std::pair<int, MTTrueError> >::const_iterator getIteratorToNMT2TrueError( const int siteID, const double freq );
 std::vector< std::pair<int, MTTrueError> >::const_iterator getIteratorToAppResAndPhsTrueError( const int siteID, const double freq );
 std::vector< std::pair<int, MTTrueError> >::const_iterator getIteratorToNMT2AppResAndPhsTrueError( const int siteID, const double freq );
@@ -299,6 +366,74 @@ void readResult( const int iterationNumber, const int numPE ){
 				}
 				m_VTFDataListAll.push_back( std::make_pair(statID, data) );
 				m_SiteIDToSiteType.insert( std::make_pair(statID, VTF ) );
+			}else if( m_stationTypeCur == HTF ) {
+				HTFData data;
+				ss >> data.freq >> cbuf;
+				double dbufReal(0.0);
+				double dbufImag(0.0);
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Cal.T[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Res.T[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Obs.T[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Err.T[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				m_HTFDataListAll.push_back( std::make_pair(statID, data) );
+				m_SiteIDToSiteType.insert( std::make_pair(statID, HTF ) );
+			}else if( m_stationTypeCur == PT ) {
+				PTData data;
+				ss >> data.freq >> cbuf;
+				double dbuf(0.0);
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbuf >> cbuf;
+					data.Cal.Phi[i] = dbuf;
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbuf >> cbuf;
+					data.Res.Phi[i] = dbuf;
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbuf >> cbuf;
+					data.Obs.Phi[i] = dbuf;
+				}
+				for( int i = 0; i < 4; ++i ){
+					ss >> dbuf >> cbuf;
+					data.Err.Phi[i] = dbuf;
+				}
+				m_PTDataListAll.push_back( std::make_pair(statID, data) );
+				m_SiteIDToSiteType.insert( std::make_pair(statID, PT ) );
+			}else if( m_stationTypeCur == NMT ) {
+				NMTData data;
+				ss >> data.freq >> cbuf;
+				double dbufReal(0.0);
+				double dbufImag(0.0);
+				for( int i = 0; i < 2; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Cal.Y[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 2; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Res.Y[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 2; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Obs.Y[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				for( int i = 0; i < 2; ++i ){
+					ss >> dbufReal >> cbuf >> dbufImag >> cbuf;
+					data.Err.Y[i] = std::complex<double>(dbufReal, dbufImag);
+				}
+				m_NMTDataListAll.push_back( std::make_pair(statID, data) );
+				m_SiteIDToSiteType.insert( std::make_pair(statID, NMT) );
 			}else if( m_stationTypeCur == NMT2 ) {
 				MTData data;
 				ss >> data.freq >> cbuf;
@@ -474,6 +609,35 @@ void readTrueError( const std::string& trueErrorFileName ){
 				trueError.error[i] = std::make_pair(dbufReal, dbufImag);
 			}
 			m_VTFTrueErrorListAll.push_back( std::make_pair(statID, trueError) );
+		}else if( type == HTF ) {
+			HTFTrueError trueError;
+			ss >> trueError.freq;
+			double dbufReal(0.0);
+			double dbufImag(0.0);
+			for( int i = 0; i < 4; ++i ){
+				ss >> dbufReal >> dbufImag;
+				trueError.error[i] = std::make_pair(dbufReal, dbufImag);
+			}
+			m_HTFTrueErrorListAll.push_back( std::make_pair(statID, trueError) );
+		}else if( type == PT ) {
+			PTTrueError trueError;
+			ss >> trueError.freq;
+			double dbuf(0.0);
+			for( int i = 0; i < 4; ++i ){
+				ss >> dbuf;
+				trueError.error[i] = dbuf;
+			}
+			m_PTTrueErrorListAll.push_back( std::make_pair(statID, trueError) );
+		}else if( type == NMT ) {
+			NMTTrueError trueError;
+			ss >> trueError.freq;
+			double dbufReal(0.0);
+			double dbufImag(0.0);
+			for( int i = 0; i < 2; ++i ){
+				ss >> dbufReal >> dbufImag;
+				trueError.error[i] = std::make_pair(dbufReal, dbufImag);
+			}
+			m_NMTTrueErrorListAll.push_back( std::make_pair(statID, trueError) );
 		}else if( type == NMT2 ) {
 			MTTrueError trueError;
 			ss >> trueError.freq;
@@ -652,6 +816,59 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 		}
 	}
 
+	// HTF
+	// Not checked
+	for( std::vector<  std::pair<int, HTFData> >::const_iterator itrData = m_HTFDataListAll.begin(); itrData != m_HTFDataListAll.end(); ++itrData ){
+		const int siteID = itrData->first;
+		const double freq = itrData->second.freq;
+		std::vector< std::pair<int, HTFTrueError> >::const_iterator itrErr = getIteratorToHTFTrueError( siteID, freq );
+		for( int i = 0; i < 4; ++i ){
+			// Real part
+			if( itrErr->second.error[i].first > 0.0 ){
+				const double residual = ( itrData->second.Cal.T[i].real() - itrData->second.Obs.T[i].real() ) / itrErr->second.error[i].first;
+				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+			}
+			// Imaginary part
+			if( itrErr->second.error[i].second > 0.0 ){
+				const double residual = ( itrData->second.Cal.T[i].imag() - itrData->second.Obs.T[i].imag() ) / itrErr->second.error[i].second;
+				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+			}
+		}
+	}
+
+	// PT
+	// Not checked
+	for( std::vector<  std::pair<int, PTData> >::const_iterator itrData = m_PTDataListAll.begin(); itrData != m_PTDataListAll.end(); ++itrData ){
+		const int siteID = itrData->first;
+		const double freq = itrData->second.freq;
+		std::vector< std::pair<int, PTTrueError> >::const_iterator itrErr = getIteratorToPTTrueError( siteID, freq );
+		for( int i = 0; i < 4; ++i ){
+			if( itrErr->second.error[i] > 0.0 ){
+				const double residual = ( itrData->second.Cal.Phi[i] - itrData->second.Obs.Phi[i] ) / itrErr->second.error[i];
+				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+			}
+		}
+	}
+
+	// NMT
+	for( std::vector<  std::pair<int, NMTData> >::const_iterator itrData = m_NMTDataListAll.begin(); itrData != m_NMTDataListAll.end(); ++itrData ){
+		const int siteID = itrData->first;
+		const double freq = itrData->second.freq;
+		std::vector< std::pair<int, NMTTrueError> >::const_iterator itrErr = getIteratorToNMTTrueError( siteID, freq );
+		for( int i = 0; i < 2; ++i ){
+			// Real part
+			if( itrErr->second.error[i].first > 0.0 ){
+				const double residual = ( itrData->second.Cal.Y[i].real() - itrData->second.Obs.Y[i].real() ) / itrErr->second.error[i].first;
+				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+			}
+			// Imaginary part
+			if( itrErr->second.error[i].second > 0.0 ){
+				const double residual = ( itrData->second.Cal.Y[i].imag() - itrData->second.Obs.Y[i].imag() ) / itrErr->second.error[i].second;
+				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+			}
+		}
+	}
+
 	// NMT2
 	for( std::vector<  std::pair<int, MTData> >::const_iterator itrData = m_NMT2DataListAll.begin(); itrData != m_NMT2DataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
@@ -759,6 +976,9 @@ void writeResult(){
 
 	writeResultMT();
 	writeResultVTF();
+	writeResultHTF();
+	writeResultPT();
+	writeResultNMT();
 	writeResultNMT2();
 	writeResultAppResAndPhs();
 	writeResultNMT2AppResAndPhs();
@@ -1052,6 +1272,287 @@ void writeResultVTF(){
 	delete[] reErr;
 	delete[] imErr;
 	ofile.close();
+}
+
+void writeResultHTF(){
+
+	if( m_HTFDataListAll.empty() ){
+		return;
+	}
+
+	// Sort
+	std::sort(m_HTFDataListAll.begin(), m_HTFDataListAll.end(), pairCompareHTFData);
+
+	std::string inputFileName;
+	std::string delim = "";
+	if( m_outputCSV ){
+		inputFileName = "result_HTF.csv";
+		delim = ",";
+	}else{
+		inputFileName = "result_HTF.txt";
+	}
+	std::ofstream ofile( inputFileName.c_str() );
+	if( ofile.fail() )
+	{
+		std::cerr << "File open error : " << inputFileName << " !!" << std::endl;
+		exit(1);
+	}
+
+	// Write header
+	writeToOfstream( ofile, 10, "Site", m_outputCSV );
+	writeToOfstream( ofile, 15, "Frequency", m_outputCSV );
+	for( int i = 0; i < 4; ++i ){
+		std::string re = "ReT"  + m_componentIndex[i] + "Cal";
+		std::string im = "ImT"  + m_componentIndex[i] + "Cal";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	for( int i = 0; i < 4; ++i ){
+		std::string re = "ReT"  + m_componentIndex[i] + "Obs";
+		std::string im = "ImT"  + m_componentIndex[i] + "Obs";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	for( int i = 0; i < 4; ++i ){
+		std::string re = "ReT"  + m_componentIndex[i] + "Err";
+		std::string im = "ImT"  + m_componentIndex[i] + "Err";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	ofile << std::endl;
+
+	ofile << std::fixed << std::scientific << std::setprecision(6);
+
+	const double mu0 = 4.0 * M_PI * 1.0e-7;
+	const double rad2deg = 180.0 / M_PI;
+	
+	double* reErr = new double[4];
+	double* imErr = new double[4];
+	for( std::vector<  std::pair<int, HTFData> >::const_iterator itr = m_HTFDataListAll.begin(); itr != m_HTFDataListAll.end(); ++itr ){
+		const int siteID = itr->first;
+		const double freq = itr->second.freq;
+
+		for( int i = 0; i < 4; ++i ){
+			double error = -1;
+			if( m_readTrueErrorFile ){
+				std::vector< std::pair<int, HTFTrueError> >::const_iterator itrErr = getIteratorToHTFTrueError( siteID, freq );
+				isSameError( siteID, freq, i, itrErr->second.error[i].first, itrErr->second.error[i].second );
+				if( itrErr->second.error[i].first > 0.0 && itrErr->second.error[i].second > 0.0 ){
+					error = std::max( itrErr->second.error[i].first, itrErr->second.error[i].second );
+				}else{
+					error = 1.0e10;
+				}
+			}else{
+				isSameError( siteID, freq, i, itr->second.Err.T[i].real(), itr->second.Err.T[i].imag() );
+				error = std::max( itr->second.Err.T[i].real(), itr->second.Err.T[i].imag() );
+			}
+			error *= FACTOR;
+			reErr[i] = error;
+			imErr[i] = error;
+		}
+		writeToOfstream( ofile, 10, convertSiteIDToSiteName(itr->first), m_outputCSV );
+		writeToOfstream( ofile, 15, freq, m_outputCSV );
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Cal.T[i].real(), m_outputCSV );
+			writeToOfstream( ofile, 15, itr->second.Cal.T[i].imag(), m_outputCSV );
+		}
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Obs.T[i].real(), m_outputCSV );
+			writeToOfstream( ofile, 15, itr->second.Obs.T[i].imag(), m_outputCSV );
+		}
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, reErr[i], m_outputCSV );
+			writeToOfstream( ofile, 15, imErr[i], m_outputCSV );
+		}
+		ofile << std::endl;
+	}
+
+	delete[] reErr;
+	delete[] imErr;
+	ofile.close();
+}
+
+void writeResultPT(){
+
+	if( m_PTDataListAll.empty() ){
+		return;
+	}
+
+	// Sort
+	std::sort(m_PTDataListAll.begin(), m_PTDataListAll.end(), pairComparePTData);
+
+	std::string inputFileName;
+	std::string delim = "";
+	if( m_outputCSV ){
+		inputFileName = "result_PT.csv";
+		delim = ",";
+	}else{
+		inputFileName = "result_PT.txt";
+	}
+	std::ofstream ofile( inputFileName.c_str() );
+	if( ofile.fail() )
+	{
+		std::cerr << "File open error : " << inputFileName << " !!" << std::endl;
+		exit(1);
+	}
+
+	// Write header
+	writeToOfstream( ofile, 10, "Site", m_outputCSV );
+	writeToOfstream( ofile, 15, "Frequency", m_outputCSV );
+	for( int i = 0; i < 4; ++i ){
+		std::string phi = "Phi"  + m_componentIndexPT[i] + "Cal";
+		writeToOfstream( ofile, 15, phi, m_outputCSV );
+	}
+	for( int i = 0; i < 4; ++i ){
+		std::string phi = "Phi"  + m_componentIndexPT[i] + "Obs";
+		writeToOfstream( ofile, 15, phi, m_outputCSV );
+	}
+	for( int i = 0; i < 4; ++i ){
+		std::string phi = "Phi"  + m_componentIndexPT[i] + "Err";
+		writeToOfstream( ofile, 15, phi, m_outputCSV );
+	}
+	ofile << std::endl;
+
+	ofile << std::fixed << std::scientific << std::setprecision(6);
+
+	const double mu0 = 4.0 * M_PI * 1.0e-7;
+	const double rad2deg = 180.0 / M_PI;
+	
+	double* err = new double[4];
+	for( std::vector<  std::pair<int, PTData> >::const_iterator itr = m_PTDataListAll.begin(); itr != m_PTDataListAll.end(); ++itr ){
+		const int siteID = itr->first;
+		const double freq = itr->second.freq;
+
+		for( int i = 0; i < 4; ++i ){
+			double error = -1;
+			if( m_readTrueErrorFile ){
+				std::vector< std::pair<int, PTTrueError> >::const_iterator itrErr = getIteratorToPTTrueError( siteID, freq );
+				if( itrErr->second.error[i] ){
+					error = itrErr->second.error[i];
+				}else{
+					error = 1.0e10;
+				}
+			}else{
+				error = itr->second.Err.Phi[i];
+			}
+			error *= FACTOR;
+			err[i] = error;
+		}
+		writeToOfstream( ofile, 10, convertSiteIDToSiteName(itr->first), m_outputCSV );
+		writeToOfstream( ofile, 15, freq, m_outputCSV );
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Cal.Phi[i], m_outputCSV );
+		}
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Obs.Phi[i], m_outputCSV );
+		}
+		for( int i = 0; i < 4; ++i ){
+			writeToOfstream( ofile, 15, err[i], m_outputCSV );
+		}
+		ofile << std::endl;
+	}
+
+	delete[] err;
+	ofile.close();
+}
+
+void writeResultNMT(){
+
+	if( m_NMTDataListAll.empty() ){
+		return;
+	}
+
+	// Sort
+	std::sort(m_NMTDataListAll.begin(), m_NMTDataListAll.end(), pairCompareNMTData);
+
+	std::string inputFileName;
+	std::string delim = "";
+	if( m_outputCSV ){
+		inputFileName = "result_NMT.csv";
+		delim = ",";
+	}else{
+		inputFileName = "result_NMT.txt";
+	}
+	std::ofstream ofile( inputFileName.c_str() );
+	if( ofile.fail() )
+	{
+		std::cerr << "File open error : " << inputFileName << " !!" << std::endl;
+		exit(1);
+	}
+
+	// Write header
+	writeToOfstream( ofile, 10, "Site", m_outputCSV );
+	writeToOfstream( ofile, 15, "Frequency", m_outputCSV );
+	for( int i = 0; i < 2; ++i ){
+		std::string re = "ReY"  + m_componentIndex[i] + "Cal";
+		std::string im = "ImY"  + m_componentIndex[i] + "Cal";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	for( int i = 0; i < 2; ++i ){
+		std::string re = "ReY"  + m_componentIndex[i] + "Obs";
+		std::string im = "ImY"  + m_componentIndex[i] + "Obs";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	for( int i = 0; i < 2; ++i ){
+		std::string re = "ReY"  + m_componentIndex[i] + "Err";
+		std::string im = "ImY"  + m_componentIndex[i] + "Err";
+		writeToOfstream( ofile, 15, re, m_outputCSV );
+		writeToOfstream( ofile, 15, im, m_outputCSV );
+	}
+	ofile << std::endl;
+
+	ofile << std::fixed << std::scientific << std::setprecision(6);
+
+	const double mu0 = 4.0 * M_PI * 1.0e-7;
+	const double rad2deg = 180.0 / M_PI;
+	
+	double* reErr = new double[2];
+	double* imErr = new double[2];
+	for( std::vector<  std::pair<int, NMTData> >::const_iterator itr = m_NMTDataListAll.begin(); itr != m_NMTDataListAll.end(); ++itr ){
+		const int siteID = itr->first;
+		const double freq = itr->second.freq;
+
+		for( int i = 0; i < 2; ++i ){
+			double error = -1;
+			if( m_readTrueErrorFile ){
+				std::vector< std::pair<int, NMTTrueError> >::const_iterator itrErr = getIteratorToNMTTrueError( siteID, freq );
+				isSameError( siteID, freq, i, itrErr->second.error[i].first, itrErr->second.error[i].second );
+				if( itrErr->second.error[i].first > 0.0 && itrErr->second.error[i].second > 0.0 ){
+					error = std::max( itrErr->second.error[i].first, itrErr->second.error[i].second );
+				}else{
+					error = 1.0e10;
+				}
+			}else{
+				isSameError( siteID, freq, i, itr->second.Err.Y[i].real(), itr->second.Err.Y[i].imag() );
+				error = std::max( itr->second.Err.Y[i].real(), itr->second.Err.Y[i].imag() );
+			}
+			error *= FACTOR;
+			reErr[i] = error;
+			imErr[i] = error;
+		}
+		writeToOfstream( ofile, 10, convertSiteIDToSiteName(itr->first), m_outputCSV );
+		writeToOfstream( ofile, 15, freq, m_outputCSV );
+		for( int i = 0; i < 2; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Cal.Y[i].real(), m_outputCSV );
+			writeToOfstream( ofile, 15, itr->second.Cal.Y[i].imag(), m_outputCSV );
+		}
+		for( int i = 0; i < 2; ++i ){
+			writeToOfstream( ofile, 15, itr->second.Obs.Y[i].real(), m_outputCSV );
+			writeToOfstream( ofile, 15, itr->second.Obs.Y[i].imag(), m_outputCSV );
+		}
+		for( int i = 0; i < 2; ++i ){
+			writeToOfstream( ofile, 15, reErr[i], m_outputCSV );
+			writeToOfstream( ofile, 15, imErr[i], m_outputCSV );
+		}
+		ofile << std::endl;
+	}
+
+	delete[] reErr;
+	delete[] imErr;
+	ofile.close();
+
 }
 
 void writeResultNMT2(){
@@ -1460,6 +1961,33 @@ bool pairCompareVTFData( const std::pair<int, VTFData>& left, const std::pair<in
 	}
 }
 
+bool pairCompareHTFData( const std::pair<int, HTFData>& left, const std::pair<int, HTFData>& right )
+{
+	if( left.first == right.first ){
+		return left.second.freq < right.second.freq;
+	}else{
+		return left.first < right.first;
+	}
+}
+
+bool pairComparePTData( const std::pair<int, PTData>& left, const std::pair<int, PTData>& right )
+{
+	if( left.first == right.first ){
+		return left.second.freq < right.second.freq;
+	}else{
+		return left.first < right.first;
+	}
+}
+
+bool pairCompareNMTData( const std::pair<int, NMTData>& left, const std::pair<int, NMTData>& right )
+{
+	if( left.first == right.first ){
+		return left.second.freq < right.second.freq;
+	}else{
+		return left.first < right.first;
+	}
+}
+
 bool pairCompareAppResAndPhsData( const std::pair<int, ApparentResistivityAndPhaseData>& left, const std::pair<int, ApparentResistivityAndPhaseData>& right )
 {
 	if( left.first == right.first ){
@@ -1571,6 +2099,54 @@ std::vector< std::pair<int, VTFTrueError> >::const_iterator getIteratorToVTFTrue
 		}
 	}
 	if( itrErr ==  m_VTFTrueErrorListAll.end() ){
+		std::cerr << "Site ID =" << siteID << " and frequency =" << freq << " is not found !!" << std::endl;
+		exit(1);
+	}
+	return itrErr;
+
+}
+
+std::vector< std::pair<int, HTFTrueError> >::const_iterator getIteratorToHTFTrueError( const int siteID, const double freq ){
+
+	std::vector< std::pair<int, HTFTrueError> >::const_iterator itrErr = m_HTFTrueErrorListAll.begin();
+	for( ; itrErr != m_HTFTrueErrorListAll.end(); ++itrErr ){
+		if( siteID == itrErr->first && std::fabs(freq - itrErr->second.freq) < 1.0e-6 ){
+			break;
+		}
+	}
+	if( itrErr ==  m_HTFTrueErrorListAll.end() ){
+		std::cerr << "Site ID =" << siteID << " and frequency =" << freq << " is not found !!" << std::endl;
+		exit(1);
+	}
+	return itrErr;
+
+}
+
+std::vector< std::pair<int, PTTrueError> >::const_iterator getIteratorToPTTrueError( const int siteID, const double freq ){
+
+	std::vector< std::pair<int, PTTrueError> >::const_iterator itrErr = m_PTTrueErrorListAll.begin();
+	for( ; itrErr != m_PTTrueErrorListAll.end(); ++itrErr ){
+		if( siteID == itrErr->first && std::fabs(freq - itrErr->second.freq) < 1.0e-6 ){
+			break;
+		}
+	}
+	if( itrErr ==  m_PTTrueErrorListAll.end() ){
+		std::cerr << "Site ID =" << siteID << " and frequency =" << freq << " is not found !!" << std::endl;
+		exit(1);
+	}
+	return itrErr;
+
+}
+
+std::vector< std::pair<int, NMTTrueError> >::const_iterator getIteratorToNMTTrueError( const int siteID, const double freq ){
+
+	std::vector< std::pair<int, NMTTrueError> >::const_iterator itrErr = m_NMTTrueErrorListAll.begin();
+	for( ; itrErr != m_NMTTrueErrorListAll.end(); ++itrErr ){
+		if( siteID == itrErr->first && std::fabs(freq - itrErr->second.freq) < 1.0e-6 ){
+			break;
+		}
+	}
+	if( itrErr ==  m_NMTTrueErrorListAll.end() ){
 		std::cerr << "Site ID =" << siteID << " and frequency =" << freq << " is not found !!" << std::endl;
 		exit(1);
 	}
