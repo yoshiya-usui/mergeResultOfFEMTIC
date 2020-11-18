@@ -170,6 +170,7 @@ const double FACTOR = 1.0;
 
 const std::string m_componentIndex[6] = { "xx", "xy", "yx", "yy", "zx", "zy" };
 const std::string m_componentIndexPT[4] = { "11", "12", "21", "22" };
+const std::string m_componentIndexXY[2] = { "x", "y" };
 int m_stationTypeCur(-1);
 bool m_readTrueErrorFile(false);
 bool m_outputCSV(false);
@@ -1484,20 +1485,20 @@ void writeResultNMT(){
 	writeToOfstream( ofile, 10, "Site", m_outputCSV );
 	writeToOfstream( ofile, 15, "Frequency", m_outputCSV );
 	for( int i = 0; i < 2; ++i ){
-		std::string re = "ReY"  + m_componentIndex[i] + "Cal";
-		std::string im = "ImY"  + m_componentIndex[i] + "Cal";
+		std::string re = "ReY"  + m_componentIndexXY[i] + "Cal";
+		std::string im = "ImY"  + m_componentIndexXY[i] + "Cal";
 		writeToOfstream( ofile, 15, re, m_outputCSV );
 		writeToOfstream( ofile, 15, im, m_outputCSV );
 	}
 	for( int i = 0; i < 2; ++i ){
-		std::string re = "ReY"  + m_componentIndex[i] + "Obs";
-		std::string im = "ImY"  + m_componentIndex[i] + "Obs";
+		std::string re = "ReY"  + m_componentIndexXY[i] + "Obs";
+		std::string im = "ImY"  + m_componentIndexXY[i] + "Obs";
 		writeToOfstream( ofile, 15, re, m_outputCSV );
 		writeToOfstream( ofile, 15, im, m_outputCSV );
 	}
 	for( int i = 0; i < 2; ++i ){
-		std::string re = "ReY"  + m_componentIndex[i] + "Err";
-		std::string im = "ImY"  + m_componentIndex[i] + "Err";
+		std::string re = "ReY"  + m_componentIndexXY[i] + "Err";
+		std::string im = "ImY"  + m_componentIndexXY[i] + "Err";
 		writeToOfstream( ofile, 15, re, m_outputCSV );
 		writeToOfstream( ofile, 15, im, m_outputCSV );
 	}
