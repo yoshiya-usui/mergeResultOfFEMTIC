@@ -182,6 +182,7 @@ const std::string m_componentIndexPT[4] = { "11", "12", "21", "22" };
 const std::string m_componentIndexXY[2] = { "x", "y" };
 int m_stationTypeCur(-1);
 bool m_readTrueErrorFile(false);
+std::string m_trueErrorFileName;
 bool m_outputCSV(false);
 bool m_isImpedanceTensorConvertedToAppResAndPhase(false);
 int m_typeOfDistortion(NO_DISTORTION);
@@ -210,7 +211,7 @@ void readControlData( const std::string& fileName );
 void readTrueError( const std::string& trueErrorFileName );
 void readDistortionMatrix( const int iterationNumber );
 void readRelationSiteIDBetweenSiteName( const std::string& relationFile );
-void calcTrueRMS( const std::string& trueErrorFileName );
+void calcTrueRMS( const bool doesReadTrueErrorFile, const std::string& trueErrorFileName );
 std::string convertSiteIDToSiteName( const int siteID );
 void writeResult();
 void writeResultMT();
@@ -255,7 +256,7 @@ int main( int argc, char* argv[] ){
 			readRelationSiteIDBetweenSiteName( argv[i+1] );
 		}
 		else if( strcmp(argv[i], "-err") == 0 ) {
-			calcTrueRMS( argv[i+1] );
+			m_trueErrorFileName = argv[i+1];
 			m_readTrueErrorFile = true;
 		}
 		else if( strcmp(argv[i], "-csv") == 0 ) {
@@ -270,6 +271,7 @@ int main( int argc, char* argv[] ){
 			m_isImpedanceTensorConvertedToAppResAndPhase = true;
 		}
 	}
+	calcTrueRMS( m_readTrueErrorFile, m_trueErrorFileName ); 
 	writeResult();
 	return 0;
 }
@@ -781,9 +783,11 @@ void readRelationSiteIDBetweenSiteName( const std::string& relationFile ){
 
 }
 
-void calcTrueRMS( const std::string& trueErrorFileName ){
+void calcTrueRMS( const bool doesReadTrueErrorFile, const std::string& trueErrorFileName ){
 
-	readTrueError( trueErrorFileName );
+	if( doesReadTrueErrorFile ){
+		readTrueError( trueErrorFileName );
+	}
 
 	std::map<int, NumDataAndSumResidual> numDataAndSumResidualEachSite;
 
@@ -791,17 +795,33 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, MTData> >::const_iterator itrData = m_MTDataListAll.begin(); itrData != m_MTDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToMTTrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			// Real part
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = ( itrData->second.Cal.Z[i].real() - itrData->second.Obs.Z[i].real() ) / itrErr->second.error[i].first;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToMTTrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = ( itrData->second.Cal.Z[i].real() - itrData->second.Obs.Z[i].real() ) / itrErr->second.error[i].first;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.Z[i].imag() - itrData->second.Obs.Z[i].imag() ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Imaginary part
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.Z[i].imag() - itrData->second.Obs.Z[i].imag() ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrData->second.Err.Z[i].real() > 0.0 ){
+					const double residual = itrData->second.Res.Z[i].real();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrData->second.Err.Z[i].imag() > 0.0 ){
+					const double residual = itrData->second.Res.Z[i].imag();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -811,17 +831,33 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, VTFData> >::const_iterator itrData = m_VTFDataListAll.begin(); itrData != m_VTFDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, VTFTrueError> >::const_iterator itrErr = getIteratorToVTFTrueError( siteID, freq );
-		for( int i = 0; i < 2; ++i ){
-			// Real part
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = ( itrData->second.Cal.TZ[i].real() - itrData->second.Obs.TZ[i].real() ) / itrErr->second.error[i].first;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, VTFTrueError> >::const_iterator itrErr = getIteratorToVTFTrueError( siteID, freq );
+			for( int i = 0; i < 2; ++i ){
+				// Real part
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = ( itrData->second.Cal.TZ[i].real() - itrData->second.Obs.TZ[i].real() ) / itrErr->second.error[i].first;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.TZ[i].imag() - itrData->second.Obs.TZ[i].imag() ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Imaginary part
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.TZ[i].imag() - itrData->second.Obs.TZ[i].imag() ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 2; ++i ){
+				// Real part
+				if( itrData->second.Err.TZ[i].real() > 0.0 ){
+					const double residual = itrData->second.Res.TZ[i].real();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrData->second.Err.TZ[i].imag() > 0.0 ){
+					const double residual = itrData->second.Res.TZ[i].imag();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -831,17 +867,33 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, HTFData> >::const_iterator itrData = m_HTFDataListAll.begin(); itrData != m_HTFDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, HTFTrueError> >::const_iterator itrErr = getIteratorToHTFTrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			// Real part
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = ( itrData->second.Cal.T[i].real() - itrData->second.Obs.T[i].real() ) / itrErr->second.error[i].first;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, HTFTrueError> >::const_iterator itrErr = getIteratorToHTFTrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = ( itrData->second.Cal.T[i].real() - itrData->second.Obs.T[i].real() ) / itrErr->second.error[i].first;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.T[i].imag() - itrData->second.Obs.T[i].imag() ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Imaginary part
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.T[i].imag() - itrData->second.Obs.T[i].imag() ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrData->second.Err.T[i].real() > 0.0 ){
+					const double residual = itrData->second.Res.T[i].real();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrData->second.Err.T[i].imag() > 0.0 ){
+					const double residual = itrData->second.Res.T[i].imag();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -851,11 +903,21 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, PTData> >::const_iterator itrData = m_PTDataListAll.begin(); itrData != m_PTDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, PTTrueError> >::const_iterator itrErr = getIteratorToPTTrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			if( itrErr->second.error[i] > 0.0 ){
-				const double residual = ( itrData->second.Cal.Phi[i] - itrData->second.Obs.Phi[i] ) / itrErr->second.error[i];
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, PTTrueError> >::const_iterator itrErr = getIteratorToPTTrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				if( itrErr->second.error[i] > 0.0 ){
+					const double residual = ( itrData->second.Cal.Phi[i] - itrData->second.Obs.Phi[i] ) / itrErr->second.error[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+			}
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				if( itrData->second.Err.Phi[i] > 0.0 ){
+					const double residual = itrData->second.Res.Phi[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -864,17 +926,33 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, NMTData> >::const_iterator itrData = m_NMTDataListAll.begin(); itrData != m_NMTDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, NMTTrueError> >::const_iterator itrErr = getIteratorToNMTTrueError( siteID, freq );
-		for( int i = 0; i < 2; ++i ){
-			// Real part
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = ( itrData->second.Cal.Y[i].real() - itrData->second.Obs.Y[i].real() ) / itrErr->second.error[i].first;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, NMTTrueError> >::const_iterator itrErr = getIteratorToNMTTrueError( siteID, freq );
+			for( int i = 0; i < 2; ++i ){
+				// Real part
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = ( itrData->second.Cal.Y[i].real() - itrData->second.Obs.Y[i].real() ) / itrErr->second.error[i].first;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.Y[i].imag() - itrData->second.Obs.Y[i].imag() ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Imaginary part
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.Y[i].imag() - itrData->second.Obs.Y[i].imag() ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 2; ++i ){
+				// Real part
+				if( itrData->second.Err.Y[i].real() > 0.0 ){
+					const double residual = itrData->second.Res.Y[i].real();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrData->second.Err.Y[i].imag() > 0.0 ){
+					const double residual = itrData->second.Res.Y[i].imag();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -883,17 +961,33 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 	for( std::vector<  std::pair<int, MTData> >::const_iterator itrData = m_NMT2DataListAll.begin(); itrData != m_NMT2DataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToNMT2TrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			// Real part
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = ( itrData->second.Cal.Z[i].real() - itrData->second.Obs.Z[i].real() ) / itrErr->second.error[i].first;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToNMT2TrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = ( itrData->second.Cal.Z[i].real() - itrData->second.Obs.Z[i].real() ) / itrErr->second.error[i].first;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.Z[i].imag() - itrData->second.Obs.Z[i].imag() ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Imaginary part
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.Z[i].imag() - itrData->second.Obs.Z[i].imag() ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				// Real part
+				if( itrData->second.Err.Z[i].real() > 0.0 ){
+					const double residual = itrData->second.Res.Z[i].real();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Imaginary part
+				if( itrData->second.Err.Z[i].imag() > 0.0 ){
+					const double residual = itrData->second.Res.Z[i].imag();
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -903,18 +997,34 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 		itrData != m_AppResAndPhsDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToAppResAndPhsTrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			// Apparent resistivity
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = log10( itrData->second.Cal.apparentResistivity[i] / itrData->second.Obs.apparentResistivity[i] )
-					/ log10 ( 1.0 + itrErr->second.error[i].first / itrData->second.Obs.apparentResistivity[i] );
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToAppResAndPhsTrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				// Apparent resistivity
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double error = itrErr->second.error[i].first / itrData->second.Obs.apparentResistivity[i]  / log(10);
+					const double residual = log10( itrData->second.Cal.apparentResistivity[i] / itrData->second.Obs.apparentResistivity[i] ) / error;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Phase
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.phase[i] - itrData->second.Obs.phase[i] ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Phase
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.phase[i] - itrData->second.Obs.phase[i] ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				// Apparent resistivity
+				if( itrData->second.Err.apparentResistivity[i] > 0.0 ){
+					const double residual = itrData->second.Res.apparentResistivity[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Phase
+				if( itrData->second.Err.phase[i] > 0.0 ){
+					const double residual = itrData->second.Res.phase[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
@@ -924,18 +1034,34 @@ void calcTrueRMS( const std::string& trueErrorFileName ){
 		itrData != m_NMT2AppResAndPhsDataListAll.end(); ++itrData ){
 		const int siteID = itrData->first;
 		const double freq = itrData->second.freq;
-		std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToNMT2AppResAndPhsTrueError( siteID, freq );
-		for( int i = 0; i < 4; ++i ){
-			// Apparent resistivity
-			if( itrErr->second.error[i].first > 0.0 ){
-				const double residual = log10( itrData->second.Cal.apparentResistivity[i] / itrData->second.Obs.apparentResistivity[i] )
-					/ log10 ( 1.0 + itrErr->second.error[i].first / itrData->second.Obs.apparentResistivity[i] );
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		if( doesReadTrueErrorFile ){
+			std::vector< std::pair<int, MTTrueError> >::const_iterator itrErr = getIteratorToNMT2AppResAndPhsTrueError( siteID, freq );
+			for( int i = 0; i < 4; ++i ){
+				// Apparent resistivity
+				if( itrErr->second.error[i].first > 0.0 ){
+					const double residual = log10( itrData->second.Cal.apparentResistivity[i] / itrData->second.Obs.apparentResistivity[i] )
+						/ log10 ( 1.0 + itrErr->second.error[i].first / itrData->second.Obs.apparentResistivity[i] );
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Phase
+				if( itrErr->second.error[i].second > 0.0 ){
+					const double residual = ( itrData->second.Cal.phase[i] - itrData->second.Obs.phase[i] ) / itrErr->second.error[i].second;
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
-			// Phase
-			if( itrErr->second.error[i].second > 0.0 ){
-				const double residual = ( itrData->second.Cal.phase[i] - itrData->second.Obs.phase[i] ) / itrErr->second.error[i].second;
-				addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+		}
+		else{
+			for( int i = 0; i < 4; ++i ){
+				// Apparent resistivity
+				if( itrData->second.Err.apparentResistivity[i] > 0.0 ){
+					const double residual = itrData->second.Res.apparentResistivity[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
+				// Phase
+				if( itrData->second.Err.phase[i] > 0.0 ){
+					const double residual = itrData->second.Res.phase[i];
+					addNumDataAndSumResidual(siteID, numDataAndSumResidualEachSite, residual);
+				}
 			}
 		}
 	}
